@@ -1,0 +1,11 @@
+{
+  "gpio_pin":17,
+  "api_key": "YOURKEY",
+  "api_endpoint": "http://www.divera247.com/api/alarm?accesskey=",
+  "max_tries": 3,
+  "request":
+  {
+    "type": "DME-Meldung"
+  },
+  "invert_gpio" : false
+}

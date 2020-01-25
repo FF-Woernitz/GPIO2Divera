@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch GPIO and alert Divera
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/GPIO2Divera
+ExecStart=/usr/bin/python3 /opt/GPIO2Divera/GPIO2Divera.py
+
+[Install]
+WantedBy=multi-user.target

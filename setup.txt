@@ -1,0 +1,11 @@
+apt install git python3-rpi.gpio python3-requests
+
+cd /opt
+
+git clone https://github.com/TobsA13/GPIO2Divera.git
+
+cp /opt/GPIO2Divera/gpio2divera.service /etc/systemd/system/
+
+
+sudo systemctl enable gpio2divera.service
+systemctl start gpio2divera.service

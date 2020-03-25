@@ -21,81 +21,94 @@ logger.setLevel(logging.DEBUG)
 def read_json(file):
     with open(file) as json_file:
         config_json = json.load(json_file)
-    logger.debug(config_json)
-    logger.debug(type(config_json))
+    logger.info(config_json)
+    logger.info(type(config_json))
     return config_json
 
 def get_conf(config_json):
-    conf = {"input_pin": "", "api_url": "", "api_key": "", "request": "", "invert_gpio": False, "max_tries": 3}
-    conf["input_pin"] = config_json["gpio_pin"]
+    conf = {"gpio_pins": [], "api_url": "", "api_key": "", "request": "", "pullup": False, "max_tries": 3}
+    conf["gpio_pins"] = config_json["gpio_pins"]
     conf["api_url"] = config_json["api_endpoint"]
     conf["api_key"] = config_json["api_key"]
     conf["request"] = config_json["request"]
-    conf["invert_gpio"] = config_json["invert_gpio"]
+    conf["pullup"] = config_json["pullup"]
     conf["max_tries"] = config_json["max_tries"]
-    logger.info("configuration:")
-    logger.info(conf)
+    logger.warning("configuration:")
+    logger.warning(conf)
+
+    for index, x in enumerate(conf['gpio_pins']):
+        if x[1] == 0:
+            conf['gpio_pins'][index][1] = GPIO.LOW
+        if x[1] == 1:
+            conf['gpio_pins'][index][1] = GPIO.HIGH
+
     return conf
 
 
 def call_api(conf):
-    logger.debug("calling api")
+    logger.info("calling api")
     for api_try in range(conf["max_tries"]):
         r = requests.post(conf["api_url"] + conf["api_key"], json=conf["request"])
-        logger.debug("Request-URL:")
-        logger.debug(r.url)
-        logger.debug("Request-answer:")
-        logger.debug(r.content)
-        logger.debug("Status_code:")
-        logger.debug(r.status_code)
+        logger.info("Request-URL:")
+        logger.info(r.url)
+        logger.info("Request-answer:")
+        logger.info(r.content)
+        logger.info("Status_code:")
+        logger.info(r.status_code)
         if r.status_code == 200:
-            logger.info("Successfully send alert")
+            logger.warning("Successfully send alert")
             return
         else:
-            logger.warning("Failed to send alert. Try: " + str(api_try + 1))
+            logger.error("Failed to send alert. Try: " + str(api_try + 1))
             time.sleep(5)
             continue
 
-def setup(input_pin):
-    # RPi.GPIO Layout verwenden (wie doku)
-    logger.debug("Setting GPIO layout as docu")
+def setup(conf):
     GPIO.setmode(GPIO.BCM)
-    # Set up the GPIO channels - one input
-    logger.debug("Set up the GPIO channels - one input")
-    GPIO.setup(input_pin, GPIO.IN)
+    if conf["pullup"]:
+        gpioPullMode = GPIO.PUD_UP
+    else:
+        gpioPullMode = GPIO.PUD_DOWN
+    for x in conf['gpio_pins']:
+        GPIO.setup(x[0], GPIO.IN, pull_up_down=gpioPullMode)
 
 def check_state(conf):
-    if GPIO.input(conf['input_pin']) == GPIO.LOW:
-        pin_state = False
-    elif GPIO.input(conf['input_pin']) == GPIO.HIGH:
-        pin_state = True
+    countNotDefault = 0
+    for x in conf['gpio_pins']:
+        gpioState = GPIO.input(x[0])
+        logger.debug("GPIO {} defaultstate: {} state: {}".format(x[0],x[1], gpioState))
+        if gpioState != x[1]:
+            logger.info("GPIO {} not default value".format(x[0]))
+            countNotDefault += 1
+    if countNotDefault >= len(conf['gpio_pins']):
+        return True
     else:
         return False
-    if conf["invert_gpio"]:
-        pin_state = not pin_state
-    #logger.debug("GPIO-state:" + str(pin_state)) #DEBUG
-    return pin_state
 
 def monitor_gpio(conf):
-    logger.info("Starting Monitoring")
+    logger.warning("Starting Monitoring")
     last_pin_state = False
     while True:
         pin_state = check_state(conf)
         if last_pin_state == False and pin_state == True:
-            logger.info("GPIO switched to alarm state")
-            logger.info("Received Alert")
+            logger.warning("GPIO switched to alarm state")
+            logger.warning("Received Alert")
             call_api(conf)
         if last_pin_state == True and pin_state == False:
-            logger.info("GPIO switched to normal state")
+            logger.warning("GPIO switched to normal state")
         last_pin_state = pin_state
-        time.sleep(0.5)
+        time.sleep(0.01)
 
 def main():
-    logger.info("GPIO2Divera started")
+    logger.warning("GPIO2Divera started")
     conf_file = read_json("config.json")
     conf = get_conf(conf_file)
+    if len(conf["gpio_pins"]) == 0:
+        raise Exception("No GPIO pins configured")
+    if conf["api_key"] == "YOURKEY" or conf["api_key"] == "":
+        raise Exception("No API key configured")
 
-    setup(conf['input_pin'])
+    setup(conf)
 
     monitor_gpio(conf)
 

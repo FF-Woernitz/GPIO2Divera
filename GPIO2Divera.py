@@ -5,6 +5,7 @@ import time
 import RPi.GPIO as GPIO
 import logging
 from logging.handlers import RotatingFileHandler
+import threading
 
 logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
 logger = logging.getLogger()
@@ -93,11 +94,15 @@ def monitor_gpio(conf):
         if last_pin_state == False and pin_state == True:
             logger.warning("GPIO switched to alarm state")
             logger.warning("Received Alert")
-            call_api(conf)
+            startNewAlarmThread(conf)
         if last_pin_state == True and pin_state == False:
             logger.warning("GPIO switched to normal state")
         last_pin_state = pin_state
         time.sleep(0.01)
+
+def startNewAlarmThread(conf):
+    x = threading.Thread(target=call_api, args=(conf,))
+    x.start()
 
 def main():
     logger.warning("GPIO2Divera started")
